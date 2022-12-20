@@ -1,0 +1,17 @@
+C:\Users\Damir\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.dll.config
+C:\Users\Damir\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.dll
+C:\Users\Damir\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.pdb
+C:\Users\Damir\source\repos\Plugins\KillCounter\obj\Debug\KillCounter.csproj.AssemblyReference.cache
+C:\Users\Damir\source\repos\Plugins\KillCounter\obj\Debug\KillCounter.csproj.CoreCompileInputs.cache
+C:\Users\Damir\source\repos\Plugins\KillCounter\obj\Debug\KillCounter.dll
+C:\Users\Damir\source\repos\Plugins\KillCounter\obj\Debug\KillCounter.pdb
+C:\Users\Damir\source\repos\HUD\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.dll.config
+C:\Users\Damir\source\repos\HUD\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.dll
+C:\Users\Damir\source\repos\HUD\PoeHelper\Plugins\Compiled\KillCounter\KillCounter.pdb
+C:\Users\Damir\source\repos\HUD\PoeHelper\net48\Plugins\Compiled\KillCounter\KillCounter.dll.config
+C:\Users\Damir\source\repos\HUD\PoeHelper\net48\Plugins\Compiled\KillCounter\KillCounter.dll
+C:\Users\Damir\source\repos\HUD\PoeHelper\net48\Plugins\Compiled\KillCounter\KillCounter.pdb
+C:\Users\Damir\source\repos\HUD\ExileApi\Plugins\Source\KillCounter\obj\Debug\KillCounter.csproj.CoreCompileInputs.cache
+C:\Users\Damir\source\repos\HUD\ExileApi\Plugins\Source\KillCounter\obj\Debug\KillCounter.dll
+C:\Users\Damir\source\repos\HUD\ExileApi\Plugins\Source\KillCounter\obj\Debug\KillCounter.pdb
+C:\Users\Damir\source\repos\HUD\ExileApi\Plugins\Source\KillCounter\obj\Debug\KillCounter.csproj.CopyComplete

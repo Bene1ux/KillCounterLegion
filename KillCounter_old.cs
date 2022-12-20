@@ -23,7 +23,7 @@ namespace KillCounter
         private Dictionary<uint, HashSet<long>> countedIds;
         private Dictionary<MonsterRarity, int> counters;
         private int sessionCounter;
-        private int summaryCounter => GameController.Player.Stats[GameStat.CharacterKillCount] - offsetKills;
+        private int summaryCounter;
         private Dictionary<string, string> generals;
         private List<string> bossNames;
         private Dictionary<string, int> bossCounters;
@@ -31,13 +31,8 @@ namespace KillCounter
         private Dictionary<string, int> jewelCounters;
         private List<string> emblemNames;
         private Dictionary<string, int> emblemCounters;
+        private AreaInstance previousAreaInstance;
         private Dictionary<string, BossInfo> times;
-        private bool isLegion = false;
-        private bool isLegionPrevious = false;
-        private bool isUber = false;
-        private bool isUberPrevious = false;
-        private int offsetKills;
-        private string currentPlayerName;
 
         class BossInfo
         {
@@ -62,11 +57,6 @@ namespace KillCounter
             GameController.LeftPanel.WantUse(() => Settings.Enable);
             countedIds = new Dictionary<uint, HashSet<long>>();
             counters = new Dictionary<MonsterRarity, int>();
-            counters[MonsterRarity.White] = 0;
-            counters[MonsterRarity.Magic] = 0;
-            counters[MonsterRarity.Rare] = 0;
-            counters[MonsterRarity.Unique] = 0;
-            counters[MonsterRarity.Error] = 0;
             bossNames = new List<string>
             {
                 "Vox", "Hyrri", "Viper", "Marceus", "Aukuna"
@@ -110,9 +100,6 @@ namespace KillCounter
                 {bossNames[3], new BossInfo(DateTime.Now, 0, Vector2.Zero, textInfo)},
                 {bossNames[4], new BossInfo(DateTime.Now, 0, Vector2.Zero, textInfo)}
             };
-
-
-            offsetKills = GameController.Player.Stats[GameStat.CharacterKillCount];
             Init();
             return true;
         }
@@ -151,7 +138,6 @@ namespace KillCounter
             {
                 counters[rarity] = 0;
             }
-
         }
 
         public override void AreaChange(AreaInstance area)
@@ -159,24 +145,10 @@ namespace KillCounter
             if (!Settings.Enable.Value) return;
             countedIds.Clear();
             counters.Clear();
-            var newPlayerName = GameController.Player.GetComponent<Player>().PlayerName;
-            if (string.IsNullOrEmpty(currentPlayerName) || !currentPlayerName.Equals(newPlayerName))
-            {
-                currentPlayerName = GameController.Player.GetComponent<Player>().PlayerName;
-                offsetKills = GameController.Player.Stats[GameStat.CharacterKillCount];
-            }
 
-            isUberPrevious = isUber;
-            isLegionPrevious = isLegion;
-            isUber = GameController.IngameState.Data.MapStats.ContainsKey(GameStat.IsLegionUberFragmentEternal);
-            isLegion = GameController.IngameState.Data.MapStats.ContainsKey(GameStat.MapIsLegionEndgameMap);
-            LogMessage($"Map is legion: {isLegion}, is uber: {isUber}");
-
-            var isLeaderOrNotInParty =
-                GameController.IngameState.Data.ServerData.PartyStatusType != PartyStatus.PartyMember;
             var bossesKilled = bossCounters.Sum(b => b.Value);
-            DebugWindow.LogMsg($"Bossess killed: {bossesKilled}");
-            if (isLegionPrevious && isLeaderOrNotInParty && bossesKilled > 0)
+            DebugWindow.LogDebug($"Bossess killed: {bossesKilled}");
+            if (previousAreaInstance != null && previousAreaInstance.Name.Contains("Domain") && bossesKilled > 0)
             {
                 var items = GameController.IngameState.Data.ServerData.PlayerInventories[0]?.Inventory?.Items;
                 if (items != null)
@@ -188,42 +160,35 @@ namespace KillCounter
                     {
                         var jewelBase = jewel.GetComponent<Base>();
                         var mods = jewel.GetComponent<Mods>();
-                        DebugWindow.LogMsg($"{jewelBase.Name} ({mods.UniqueName})");
+                        DebugWindow.LogDebug($"{jewelBase.Name} ({mods.UniqueName})");
                         jewelCounters[mods.UniqueName]++;
                     }
 
                     foreach (var emblem in emblems)
                     {
                         var emblemBase = emblem.GetComponent<Base>();
-                        DebugWindow.LogMsg($"{emblemBase.Name}");
+                        DebugWindow.LogDebug($"{emblemBase.Name}");
                         emblemCounters[emblemBase.Name]++;
                     }
                 }
 
-                var filename = Settings.LegionFile.Value;
-                var slashPosition = filename.LastIndexOf('/') + 1;
-                if (isUberPrevious)
-                {
-                    filename = filename.Insert(slashPosition, "uber_");
-                }
-
-                if (!File.Exists(filename))
+                if (!File.Exists(Settings.LegionFile))
                 {
                     var namesList = bossNames.Concat(jewelNames).Concat(emblemNames);
-                    File.AppendAllText(filename, $"{string.Join("\t", namesList)}{Environment.NewLine}");
+                    File.AppendAllText(Settings.LegionFile, $"{string.Join("\t", namesList)}{Environment.NewLine}");
                 }
 
                 var bossCount = bossNames.Select(bossName => bossCounters[bossName]).ToList();
                 var jewelCount = jewelNames.Select(jewelName => jewelCounters[jewelName]).ToList();
                 var emblemCount = emblemNames.Select(emblemName => emblemCounters[emblemName]).ToList();
                 var countList = bossCount.Concat(jewelCount).Concat(emblemCount);
-                File.AppendAllText(filename, $"{string.Join("\t", countList)}{Environment.NewLine}");
+                File.AppendAllText(Settings.LegionFile, $"{string.Join("\t", countList)}{Environment.NewLine}");
             }
 
             ResetCounters();
-
             sessionCounter += summaryCounter;
-            offsetKills = GameController.Player.Stats[GameStat.CharacterKillCount];
+            summaryCounter = 0;
+            previousAreaInstance = area;
             Init();
         }
 
@@ -264,13 +229,8 @@ namespace KillCounter
 
             if (!_canRender) return;
 
-            var position = new Vector2(Settings.KillsX, Settings.KillsY); //GameController.LeftPanel.StartDrawPoint;
+            var position = GameController.LeftPanel.StartDrawPoint;
             var size = Vector2.Zero;
-
-            if (Settings.DrawRadius)
-            {
-                DrawRadius(Settings.Radius);
-            }
 
             if (Settings.ShowDetail) size = DrawCounters(position);
             var session = $"({sessionCounter + summaryCounter})";
@@ -285,39 +245,32 @@ namespace KillCounter
                 size.Y + size2.Y + 10);
             Graphics.DrawImage("preload-new.png", bounds, Settings.BackgroundColor);
 
-            if (GameController.IngameState.Data.MapStats.ContainsKey(GameStat.MapIsLegionEndgameMap))
+            if (GameController.Area.CurrentArea.Name
+                .Contains("Domain") /*!GameController.Area.CurrentArea.IsHideout && !GameController.Area.CurrentArea.IsTown*/
+               )
             {
-                //LogMessage("Map contains legion stat");
-                var bossPos = new Vector2(Settings.GeneralX, Settings.GeneralY);
+                var bossPos = new Vector2(200, 280);
                 foreach (var bossName in bossNames)
                 {
-                    if (Settings.DrawTime && GameController.Game.IngameState.IngameUi.Map.LargeMap.IsVisible)
+                    var count = bossCounters[bossName];
+                    Graphics.DrawText($"{bossName}: {count}", bossPos);
+                    var seconds = (times[bossName].Time - DateTime.Now).TotalSeconds;
+                    if (seconds < 0)
+                    {
+                        seconds = 0;
+                    }
+
+                    if (Settings.DrawTime&&GameController.Game.IngameState.IngameUi.Map.LargeMap.IsVisible)
                     {
                         DrawToLargeMiniMapText(times[bossName], times[bossName].TextureInfo);
                     }
 
-                    if (Settings.ShowGeneral)
-                    {
-                        var count = bossCounters[bossName];
-                        Graphics.DrawText($"{bossName}: {count}", bossPos);
-                        var seconds = (times[bossName].Time - DateTime.Now).TotalSeconds;
-                        if (seconds < 0)
-                        {
-                            seconds = 0;
-                        }
-                        Graphics.DrawText($"{seconds} sec", bossPos.Translate(Settings.TimePosition));
-                        bossPos.Y += 20;
-                    }
-
+                    Graphics.DrawText($"{seconds} sec", bossPos.Translate(Settings.TimePosition));
+                    bossPos.Y += 20;
                 }
-
-            }
-            else
-            {
-                //LogMessage("Map doesnt contain legion stat");
             }
 
-            // GameController.LeftPanel.StartDrawPoint = position;
+            GameController.LeftPanel.StartDrawPoint = position;
         }
 
         //TODO Rewrite with use ImGuiRender.DrawMultiColoredText()
@@ -366,7 +319,7 @@ namespace KillCounter
                     !string.IsNullOrEmpty(Entity.RenderName))
                 {
                     counters[rarity]++;
-                    //summaryCounter++;
+                    summaryCounter++;
                 }
 
                 if (rarity != MonsterRarity.Unique)
@@ -387,47 +340,6 @@ namespace KillCounter
                     bossCounters[generals[Entity.Metadata]]++;
                 }
             }
-        }
-
-        private void DrawRadius(int radius)
-        {
-            var camera = GameController.Game.IngameState.Camera;
-            var mapWindow = GameController.Game.IngameState.IngameUi.Map;
-            if (GameController.Game.IngameState.UIRoot.Scale == 0)
-            {
-                DebugWindow.LogError(
-                    "ExpeditionIcons: Seems like UIRoot.Scale is 0. Icons will not be drawn because of that.");
-            }
-
-            var mapRect = mapWindow.GetClientRect();
-
-            var screenCenter = new Vector2(mapRect.Width / 2, mapRect.Height / 2).Translate(0, -20) +
-                               new Vector2(mapRect.X, mapRect.Y) +
-                               new Vector2(mapWindow.LargeMapShiftX, mapWindow.LargeMapShiftY);
-            var diag = (float)Math.Sqrt(camera.Width * camera.Width + camera.Height * camera.Height);
-            var k = camera.Width < 1024f ? 1120f : 1024f;
-            var scale = k / camera.Height * camera.Width * 3f / 4f / mapWindow.LargeMapZoom;
-
-            //var point = screenCenter;
-            //var background = new RectangleF(point.X-1, point.Y-1,3,3);
-            //Graphics.DrawBox(background, Color.Blue);
-            //var point = screenCenter;// + DeltaInWorldToMinimapDelta(p, diag, scale);
-            //Graphics.DrawBox(background, Color.Blue);//.DrawLine(point, point+5, 10, Color.Blue);
-            for (int x = -radius; x <= radius; x++)
-            {
-
-                var y = (float)Math.Sqrt(radius * radius - x * x);
-                var p = new Vector2(x, y);
-                var point = screenCenter + DeltaInWorldToMinimapDelta(p, diag, scale);
-                var background = new RectangleF(point.X - 1, point.Y - 1, 3, 3);
-                Graphics.DrawBox(background, Color.Blue);
-
-                p = new Vector2(x, -y);
-                point = screenCenter + DeltaInWorldToMinimapDelta(p, diag, scale);
-                background = new RectangleF(point.X - 1, point.Y - 1, 3, 3);
-                Graphics.DrawBox(background, Color.Blue);
-            }
-
         }
 
         private void DrawToLargeMiniMapText(BossInfo entity, MinimapTextInfo info)
@@ -562,8 +474,7 @@ namespace KillCounter
             LabelTextSize = new RangeNode<int>(16, 10, 20);
             KillsTextSize = new RangeNode<int>(16, 10, 20);
         }
-        public RangeNode<int> KillsX { get; set; } = new RangeNode<int>(200, 0, 1920);
-        public RangeNode<int> KillsY { get; set; } = new RangeNode<int>(300, 0, 1080);
+
         public ToggleNode ShowInTown { get; set; }
         public ToggleNode ShowDetail { get; set; }
         public ColorNode TextColor { get; set; }
@@ -573,14 +484,9 @@ namespace KillCounter
         public ToggleNode UseImguiForDraw { get; set; } = new ToggleNode(true);
         public ToggleNode MultiThreading { get; set; } = new ToggleNode(false);
         public ToggleNode Enable { get; set; } = new ToggleNode(false);
-        public ToggleNode ShowGeneral { get; set; } = new ToggleNode(false);
         public RangeNode<int> TimePosition { get; set; } = new RangeNode<int>(100, -500, 500);
         public RangeNode<int> GeneralCooldown { get; set; } = new RangeNode<int>(24, 0, 60);
-        public RangeNode<int> GeneralX { get; set; } = new RangeNode<int>(200, 0, 1920);
-        public RangeNode<int> GeneralY { get; set; } = new RangeNode<int>(500, 0, 1080);
         public ToggleNode DrawTime { get; set; } = new ToggleNode(false);
         public TextNode LegionFile { get; set; } = new TextNode("legioninfo.txt");
-        public ToggleNode DrawRadius { get; set; } = new ToggleNode(false);
-        public RangeNode<int> Radius { get; set; } = new RangeNode<int>(210, 100, 250);
     }
 }
